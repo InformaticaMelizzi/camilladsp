@@ -1,25 +1,34 @@
-name: build-camilladsp-alsa
+name: build-camilladsp-alsa-artifact
 on: { workflow_dispatch: {} }
-
-permissions:
-  contents: write   # serve per creare la Release
+permissions: { contents: write }
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { ref: master }    # usa il tuo branch
+        with: { ref: master, fetch-depth: 0 }
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Dipendenze
-        run: sudo apt-get update && sudo apt-get install -y pkg-config libasound2-dev
+      - name: System deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libasound2-dev libssl-dev cmake clang
+
+      - name: Sanity check
+        run: |
+          rustc -V
+          cargo -V
+          test -f Cargo.toml || (echo "Manca Cargo.toml" && exit 2)
+          ls -la
 
       - name: Build ALSA-only
-        env: { RUSTFLAGS: "-C target-cpu=x86-64-v2" }
+        env:
+          RUSTFLAGS: "-C target-cpu=x86-64-v2"
+          CARGO_TERM_COLOR: always
         run: |
-          cargo build --release --no-default-features --features backend-alsa,websocket
+          cargo build --release --no-default-features --features "backend-alsa,websocket"
           strip target/release/camilladsp
           ldd target/release/camilladsp | grep -i pulse && exit 1 || echo "OK no Pulse"
 
@@ -29,20 +38,10 @@ jobs:
           tar -C dist -czf camilladsp-linux-amd64-alsa.tar.gz camilladsp
           sha256sum camilladsp-linux-amd64-alsa.tar.gz > camilladsp-linux-amd64-alsa.tar.gz.sha256
 
-      - name: Upload artifact (fallback)
-        if: always()
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: camilladsp-linux-amd64-alsa
           path: |
-            camilladsp-linux-amd64-alsa.tar.gz
-            camilladsp-linux-amd64-alsa.tar.gz.sha256
-
-      - name: Pubblica Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: alsa-${{ github.run_id }}
-          name: ALSA build ${{ github.run_id }}
-          files: |
             camilladsp-linux-amd64-alsa.tar.gz
             camilladsp-linux-amd64-alsa.tar.gz.sha256

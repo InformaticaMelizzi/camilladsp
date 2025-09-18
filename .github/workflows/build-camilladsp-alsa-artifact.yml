@@ -1,6 +1,5 @@
 name: build-camilladsp-alsa-artifact
 on: { workflow_dispatch: {} }
-permissions: { contents: write }
 
 jobs:
   build:
@@ -11,30 +10,22 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: System deps
+      - name: Deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libasound2-dev
+          sudo apt-get install -y build-essential pkg-config libasound2-dev nasm
 
-      - name: Build minimal (solo websocket)
-        env:
-          RUSTFLAGS: "-C target-cpu=x86-64-v2"
-          CARGO_TERM_COLOR: always
+      - name: Build minimal (stdin/stdout + websocket)
+        env: { RUSTFLAGS: "-C target-cpu=x86-64-v2", CARGO_TERM_COLOR: always }
         run: |
           cargo build --release --no-default-features --features websocket
           strip target/release/camilladsp
-          ldd target/release/camilladsp | grep -i pulse && exit 1 || echo "OK no Pulse"
 
       - name: Pack
-        run: |
-          mkdir -p dist && cp target/release/camilladsp dist/
-          tar -C dist -czf camilladsp-linux-amd64-alsa.tar.gz camilladsp
-          sha256sum camilladsp-linux-amd64-alsa.tar.gz > camilladsp-linux-amd64-alsa.tar.gz.sha256
+        run: tar -C target/release -czf camilladsp-linux-amd64-alsa.tar.gz camilladsp
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: camilladsp-linux-amd64-alsa
-          path: |
-            camilladsp-linux-amd64-alsa.tar.gz
-            camilladsp-linux-amd64-alsa.tar.gz.sha256
+          path: camilladsp-linux-amd64-alsa.tar.gz

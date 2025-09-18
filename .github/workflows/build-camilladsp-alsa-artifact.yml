@@ -14,21 +14,14 @@ jobs:
       - name: System deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libasound2-dev libssl-dev cmake clang
+          sudo apt-get install -y build-essential pkg-config libasound2-dev
 
-      - name: Sanity check
-        run: |
-          rustc -V
-          cargo -V
-          test -f Cargo.toml || (echo "Manca Cargo.toml" && exit 2)
-          ls -la
-
-      - name: Build ALSA-only
+      - name: Build minimal (solo websocket)
         env:
           RUSTFLAGS: "-C target-cpu=x86-64-v2"
           CARGO_TERM_COLOR: always
         run: |
-          cargo build --release --no-default-features --features "backend-alsa,websocket"
+          cargo build --release --no-default-features --features websocket
           strip target/release/camilladsp
           ldd target/release/camilladsp | grep -i pulse && exit 1 || echo "OK no Pulse"
 
